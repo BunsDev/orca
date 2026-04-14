@@ -1,5 +1,4 @@
 /* eslint-disable max-lines */
-import type { SshTarget } from './ssh-types'
 
 // ─── Repo ────────────────────────────────────────────────────────────
 export type RepoKind = 'git' | 'folder'
@@ -14,8 +13,6 @@ export type Repo = {
   gitUsername?: string
   worktreeBaseRef?: string
   hookSettings?: RepoHookSettings
-  /** SSH target ID for remote repos. null/undefined = local. */
-  connectionId?: string | null
 }
 
 export type SetupRunPolicy = 'ask' | 'run-by-default' | 'skip-by-default'
@@ -57,6 +54,20 @@ export type WorktreeMeta = {
   sortOrder: number
   lastActivityAt: number
 }
+
+// ─── Tab Group Layout ───────────────────────────────────────────────
+export type TabGroupSplitDirection = 'horizontal' | 'vertical'
+
+export type TabGroupLayoutNode =
+  | { type: 'leaf'; groupId: string }
+  | {
+      type: 'split'
+      direction: TabGroupSplitDirection
+      first: TabGroupLayoutNode
+      second: TabGroupLayoutNode
+      /** Flex ratio of the first child (0–1). Defaults to 0.5 if absent. */
+      ratio?: number
+    }
 
 // ─── Unified Tab ────────────────────────────────────────────────────
 export type TabContentType = 'terminal' | 'editor' | 'diff' | 'conflict-review' | 'browser'
@@ -197,6 +208,9 @@ export type TerminalLayoutSnapshot = {
   root: TerminalPaneLayoutNode | null
   activeLeafId: string | null
   expandedLeafId: string | null
+  /** Live PTY IDs per leaf for in-session remounts such as tab-group moves.
+   *  Not used for app restart because PTYs are transient processes. */
+  ptyIdsByLeafId?: Record<string, string>
   /** Serialized terminal buffers per leaf for scrollback restoration on restart. */
   buffersByLeafId?: Record<string, string>
   /** User-assigned pane titles, keyed by leafId (e.g. "pane:3").
@@ -246,6 +260,10 @@ export type WorkspaceSessionState = {
   unifiedTabs?: Record<string, Tab[]>
   /** Tab group model — present alongside unifiedTabs. */
   tabGroups?: Record<string, TabGroup[]>
+  /** Persisted split layout tree per worktree. */
+  tabGroupLayouts?: Record<string, TabGroupLayoutNode>
+  /** Per-worktree focused group at shutdown. */
+  activeGroupIdByWorktree?: Record<string, string>
 }
 
 // ─── GitHub ──────────────────────────────────────────────────────────
@@ -462,10 +480,6 @@ export type GlobalSettings = {
   terminalActivePaneOpacity: number
   terminalPaneOpacityTransitionMs: number
   terminalDividerThicknessPx: number
-  /** Why: Windows terminals conventionally use right-click as a paste gesture.
-   *  The setting stays Windows-only so macOS/Linux keep their existing context
-   *  menu behavior and users can still reach the menu with Ctrl+right-click. */
-  terminalRightClickToPaste: boolean
   terminalFocusFollowsMouse: boolean
   terminalScrollbackBytes: number
   /** Why: opening arbitrary links inside Orca uses an isolated guest browser surface.
@@ -491,10 +505,6 @@ export type GlobalSettings = {
    *  analytics and external terminal sessions. */
   codexManagedAccounts: CodexManagedAccount[]
   activeCodexManagedAccountId: string | null
-  /** When true, each worktree gets its own shell history file so ArrowUp
-   *  does not surface commands from other worktrees. Defaults to true.
-   *  Disable to revert to shared global shell history. */
-  terminalScopeHistoryByWorktree: boolean
 }
 
 export type NotificationEventSource = 'agent-task-complete' | 'terminal-bell' | 'test'
@@ -568,7 +578,6 @@ export type PersistedState = {
     issue: Record<string, { data: IssueInfo | null; fetchedAt: number }>
   }
   workspaceSession: WorkspaceSessionState
-  sshTargets: SshTarget[]
 }
 
 // ─── Filesystem ─────────────────────────────────────────────
