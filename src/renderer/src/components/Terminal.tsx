@@ -31,10 +31,10 @@ import TabGroupSplitLayout from './tab-group/TabGroupSplitLayout'
 import { shouldAutoCreateInitialTerminal } from './terminal/initial-terminal'
 
 const EditorPanel = lazy(() => import('./editor/EditorPanel'))
-// Why: the split-group ownership path lands before the rollout switch so we
-// can exercise the full renderer/model integration in code review without
-// exposing partial behavior to users. PR6 flips this to true.
-const ENABLE_SPLIT_GROUPS = false
+// Why: the earlier rollout branches land the model, PTY lifecycle, restore,
+// and renderer ownership changes first. Once those are in place, this final
+// switch turns on split groups without exposing intermediate broken states.
+const ENABLE_SPLIT_GROUPS = true
 
 function Terminal(): React.JSX.Element | null {
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
