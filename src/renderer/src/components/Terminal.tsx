@@ -31,10 +31,6 @@ import TabGroupSplitLayout from './tab-group/TabGroupSplitLayout'
 import { shouldAutoCreateInitialTerminal } from './terminal/initial-terminal'
 
 const EditorPanel = lazy(() => import('./editor/EditorPanel'))
-// Why: the earlier rollout branches land the model, PTY lifecycle, restore,
-// and renderer ownership changes first. Once those are in place, this final
-// switch turns on split groups without exposing intermediate broken states.
-const ENABLE_SPLIT_GROUPS = true
 
 function Terminal(): React.JSX.Element | null {
   const activeWorktreeId = useAppStore((s) => s.activeWorktreeId)
@@ -124,7 +120,7 @@ function Terminal(): React.JSX.Element | null {
     [activeGroupIdByWorktree, groupsByWorktree, layoutByWorktree]
   )
   const effectiveActiveLayout = activeWorktreeId
-    ? (ENABLE_SPLIT_GROUPS ? getEffectiveLayoutForWorktree(activeWorktreeId) : undefined)
+    ? getEffectiveLayoutForWorktree(activeWorktreeId)
     : undefined
   const activeWorktree = activeWorktreeId
     ? (allWorktrees.find((worktree) => worktree.id === activeWorktreeId) ?? null)
