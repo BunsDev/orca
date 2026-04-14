@@ -24,7 +24,6 @@ type WorkspaceSessionSnapshot = Pick<
   | 'activeBrowserTabIdByWorktree'
   | 'unifiedTabsByWorktree'
   | 'groupsByWorktree'
-  | 'layoutByWorktree'
   | 'activeGroupIdByWorktree'
 >
 
@@ -114,8 +113,6 @@ export function buildWorkspaceSessionPayload(
       snapshot.activeBrowserTabIdByWorktree
     ),
     unifiedTabs: snapshot.unifiedTabsByWorktree,
-    tabGroups: snapshot.groupsByWorktree,
-    tabGroupLayouts: snapshot.layoutByWorktree,
-    activeGroupIdByWorktree: snapshot.activeGroupIdByWorktree
+    tabGroups: snapshot.groupsByWorktree
   }
 }
