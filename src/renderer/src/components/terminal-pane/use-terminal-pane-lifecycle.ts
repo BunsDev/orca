@@ -14,7 +14,6 @@ import type { GlobalSettings, TerminalLayoutSnapshot } from '../../../../shared/
 import { resolveTerminalFontWeights } from '../../../../shared/terminal-fonts'
 import {
   buildFontFamily,
-  collectLeafIdsInOrder,
   replayTerminalLayout,
   restoreScrollbackBuffers
 } from './layout-serialization'
@@ -51,7 +50,6 @@ type UseTerminalPaneLifecycleDeps = {
   panePtyBindingsRef: React.RefObject<Map<number, IDisposable>>
   pendingWritesRef: React.RefObject<Map<number, string>>
   isActiveRef: React.RefObject<boolean>
-  isVisibleRef: React.RefObject<boolean>
   onPtyExitRef: React.RefObject<(ptyId: string) => void>
   onPtyErrorRef?: React.RefObject<(paneId: number, message: string) => void>
   clearTabPtyId: (tabId: string, ptyId: string) => void
@@ -96,7 +94,6 @@ export function useTerminalPaneLifecycle({
   panePtyBindingsRef,
   pendingWritesRef,
   isActiveRef,
-  isVisibleRef,
   onPtyExitRef,
   onPtyErrorRef,
   clearTabPtyId,
@@ -188,8 +185,6 @@ export function useTerminalPaneLifecycle({
     }
 
     let shouldPersistLayout = false
-    const restoredLeafIdsInOrder = collectLeafIdsInOrder(initialLayoutRef.current.root)
-    let restoredPaneCreateIndex = 0
     const ptyDeps = {
       tabId,
       worktreeId,
@@ -198,7 +193,6 @@ export function useTerminalPaneLifecycle({
       paneTransportsRef,
       pendingWritesRef,
       isActiveRef,
-      isVisibleRef,
       onPtyExitRef,
       onPtyErrorRef,
       clearTabPtyId,
@@ -209,8 +203,7 @@ export function useTerminalPaneLifecycle({
       updateTabPtyId,
       markWorktreeUnread,
       dispatchNotification,
-      setCacheTimerStartedAt,
-      restoredPtyIdByLeafId: initialLayoutRef.current.ptyIdsByLeafId ?? {}
+      setCacheTimerStartedAt
     }
 
     const unregisterRuntimeTab = registerRuntimeTerminalTab({
@@ -245,12 +238,7 @@ export function useTerminalPaneLifecycle({
           }
         }
         applyAppearance(manager)
-        const restoredLeafId = restoredLeafIdsInOrder[restoredPaneCreateIndex] ?? null
-        restoredPaneCreateIndex += 1
-        const panePtyBinding = connectPanePty(pane, manager, {
-          ...ptyDeps,
-          restoredLeafId
-        })
+        const panePtyBinding = connectPanePty(pane, manager, ptyDeps)
         panePtyBindings.set(pane.id, panePtyBinding)
         scheduleRuntimeGraphSync()
         queueResizeAll(true)
@@ -448,11 +436,6 @@ export function useTerminalPaneLifecycle({
     scheduleRuntimeGraphSync()
 
     return () => {
-      const tabStillExists = Boolean(
-        useAppStore
-          .getState()
-          .tabsByWorktree[worktreeId]?.find((candidate) => candidate.id === tabId)
-      )
       unregisterRuntimeTab()
       if (resizeRaf !== null) {
         cancelAnimationFrame(resizeRaf)
@@ -463,15 +446,7 @@ export function useTerminalPaneLifecycle({
       }
       linkDisposables.clear()
       for (const transport of paneTransports.values()) {
-        if (tabStillExists) {
-          // Why: moving a terminal tab between groups currently rehomes the
-          // React subtree, which unmounts this TerminalPane even though the tab
-          // itself is still alive. Detaching preserves the running PTY so the
-          // remounted pane can reattach without restarting the user's shell.
-          transport.detach?.()
-        } else {
-          transport.destroy?.()
-        }
+        transport.destroy?.()
       }
       for (const panePtyBinding of panePtyBindings.values()) {
         panePtyBinding.dispose()
